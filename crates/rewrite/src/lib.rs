@@ -2,7 +2,9 @@
 //!
 //! This crate hosts the scaffolding for semantics-preserving graph rewrites. It
 //! sits above `vtc-ir` and records each rewrite's numeric safety from explicit
-//! algebraic laws before any real graph surgery is implemented.
+//! algebraic laws, graph surgery helpers, and differential-test generators.
+
+pub mod r#gen;
 
 mod rule;
 mod rules;

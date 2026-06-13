@@ -5,11 +5,10 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
+rand = "0.8"
 thiserror.workspace = true
-vtc-ir = { path = "../ir" }
-
-[dev-dependencies]
 vtc-interp = { path = "../interp" }
+vtc-ir = { path = "../ir" }
 
 [lints]
 workspace = true
