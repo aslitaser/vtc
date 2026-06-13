@@ -1,6 +1,6 @@
 //! Flat affine loop IR.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::{self, Write as _};
 
 use num_rational::BigRational;
@@ -74,6 +74,34 @@ impl AffineExpr {
         self.constant
     }
 
+    /// Returns a new expression with `var` replaced by `replacement`.
+    ///
+    /// If `var` appears with coefficient `c`, the occurrence contributes
+    /// `c * replacement` to the result. Like terms are combined and zero
+    /// coefficients are removed, yielding a stable normalized term order.
+    #[must_use]
+    pub fn substitute(&self, var: LoopVar, replacement: &AffineExpr) -> Self {
+        let mut terms = BTreeMap::new();
+        let mut constant = self.constant;
+
+        for (term_var, coeff) in &self.terms {
+            if *term_var == var {
+                constant = constant.saturating_add(coeff.saturating_mul(replacement.constant));
+                for (replacement_var, replacement_coeff) in &replacement.terms {
+                    add_term(
+                        &mut terms,
+                        *replacement_var,
+                        coeff.saturating_mul(*replacement_coeff),
+                    );
+                }
+            } else {
+                add_term(&mut terms, *term_var, *coeff);
+            }
+        }
+
+        Self::new(terms.into_iter().collect(), constant)
+    }
+
     /// Evaluates this expression in a loop-variable environment.
     ///
     /// Missing variables are treated as zero so closed constant bounds and
@@ -83,6 +111,17 @@ impl AffineExpr {
         self.terms.iter().fold(self.constant, |acc, (var, coeff)| {
             acc.saturating_add(coeff.saturating_mul(env.get(var).copied().unwrap_or(0)))
         })
+    }
+}
+
+fn add_term(terms: &mut BTreeMap<LoopVar, i64>, var: LoopVar, coeff: i64) {
+    if coeff == 0 {
+        return;
+    }
+    let entry = terms.entry(var).or_insert(0);
+    *entry = entry.saturating_add(coeff);
+    if *entry == 0 {
+        terms.remove(&var);
     }
 }
 
@@ -427,5 +466,49 @@ fn role_text(role: &BufferRole) -> String {
         BufferRole::Const(_) => "const".to_owned(),
         BufferRole::Temp => "temp".to_owned(),
         BufferRole::Output => "output".to_owned(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{AffineExpr, LoopVar};
+
+    #[test]
+    fn substitute_replaces_scaled_variable() {
+        let i = LoopVar::new(0);
+        let io = LoopVar::new(1);
+        let ii = LoopVar::new(2);
+        let expr = AffineExpr::new(vec![(i, 3)], 5);
+        let replacement = AffineExpr::new(vec![(io, 2), (ii, 1)], 0);
+
+        assert_eq!(
+            expr.substitute(i, &replacement),
+            AffineExpr::new(vec![(io, 6), (ii, 3)], 5),
+        );
+    }
+
+    #[test]
+    fn substitute_absent_variable_is_identity() {
+        let i = LoopVar::new(0);
+        let j = LoopVar::new(1);
+        let expr = AffineExpr::new(vec![(j, 7)], -3);
+        let replacement = AffineExpr::new(vec![(LoopVar::new(2), 2)], 4);
+
+        assert_eq!(expr.substitute(i, &replacement), expr);
+    }
+
+    #[test]
+    fn substitute_combines_multi_term_expression() {
+        let i = LoopVar::new(0);
+        let j = LoopVar::new(1);
+        let io = LoopVar::new(2);
+        let ii = LoopVar::new(3);
+        let expr = AffineExpr::new(vec![(i, 2), (j, 4), (io, 1)], 1);
+        let replacement = AffineExpr::new(vec![(io, 3), (ii, -1)], 5);
+
+        assert_eq!(
+            expr.substitute(i, &replacement),
+            AffineExpr::new(vec![(j, 4), (io, 7), (ii, -2)], 11),
+        );
     }
 }

@@ -20,6 +20,29 @@ pub enum LegalityError {
     /// The dependence classifier could not prove the swap legal.
     #[error("unknown dependence blocks interchange")]
     UnknownDependence,
+    /// The selected loop bound was not a constant `0..N` bound.
+    #[error("loop bound is not a constant zero-based range")]
+    NonConstantBound,
+    /// The requested tile size does not evenly divide the loop extent.
+    #[error("tile size {tile_size} does not evenly divide extent {extent}")]
+    NonDivisibleTile {
+        /// Constant loop extent.
+        extent: i64,
+        /// Requested tile size.
+        tile_size: usize,
+    },
+    /// Fusion requires adjacent top-level nests.
+    #[error("fusion requires adjacent top-level nests")]
+    FusionNotAdjacent,
+    /// Fusion requires matching constant loop bounds.
+    #[error("fusion loop bounds do not match")]
+    FusionBoundsMismatch,
+    /// Fusion would violate a producer/consumer or write/write dependence.
+    #[error("fusion dependence violation")]
+    FusionDependenceViolation,
+    /// Fusion would violate an anti-dependence.
+    #[error("fusion anti-dependence")]
+    FusionAntiDependence,
     /// Internal consistency check failed.
     #[error("internal legality error: {0}")]
     Internal(String),

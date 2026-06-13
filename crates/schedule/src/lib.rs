@@ -4,9 +4,14 @@
 //! above `vtc-loopir` and accepts only schedules that preserve loop semantics.
 
 mod deps;
+mod fuse;
 mod interchange;
 mod mode;
+mod primitives;
+mod tile;
 
 pub use deps::{DepError, LevelDep, affine_depends_on, affine_eq, classify_levels};
+pub use fuse::fuse;
 pub use interchange::{LegalityError, interchange};
 pub use mode::Mode;
+pub use tile::tile;
