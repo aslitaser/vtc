@@ -5,12 +5,13 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
+rand = "0.8"
 thiserror.workspace = true
+vtc-interp = { path = "../interp" }
 vtc-ir = { path = "../ir" }
 vtc-loopir = { path = "../loopir" }
 
 [dev-dependencies]
-rand = "0.8"
 vtc-rewrite = { path = "../rewrite" }
 
 [lints]
