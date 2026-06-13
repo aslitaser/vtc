@@ -1,0 +1,12 @@
+[package]
+name = "vtc-codegen"
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+vtc-loopir = { path = "../loopir" }
+
+[lints]
+workspace = true

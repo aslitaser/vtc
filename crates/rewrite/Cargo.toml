@@ -1,0 +1,13 @@
+[package]
+name = "vtc-rewrite"
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+vtc-interp = { path = "../interp" }
+vtc-ir = { path = "../ir" }
+
+[lints]
+workspace = true

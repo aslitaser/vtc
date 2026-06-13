@@ -1,0 +1,12 @@
+[package]
+name = "vtc-loopir"
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+vtc-interp = { path = "../interp" }
+vtc-ir = { path = "../ir" }
+
+[lints]
+workspace = true

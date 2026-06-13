@@ -1,0 +1,11 @@
+[package]
+name = "vtc-interp"
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+vtc-ir = { path = "../ir" }
+
+[lints]
+workspace = true
