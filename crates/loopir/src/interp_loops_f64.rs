@@ -1,75 +1,32 @@
-//! Exact-rational interpreter for affine loop kernels.
+//! IEEE `f64` interpreter for affine loop kernels.
 
 use std::collections::HashMap;
 use std::hash::BuildHasher;
 
-use num_rational::BigRational;
-use num_traits::Zero;
-use thiserror::Error;
-use vtc_interp::{EvalError, Tensor};
-use vtc_ir::{DType, Shape};
+use num_traits::ToPrimitive;
+use vtc_interp::TensorF64;
 
-use crate::{Buffer, BufferId, BufferRef, BufferRole, Kernel, LoopVar, ScalarExpr, Stmt};
+use crate::interp_loops::{buffer_index, loop_error_from_eval, shape_numel};
+use crate::{
+    Buffer, BufferId, BufferRef, BufferRole, Kernel, LoopError, LoopVar, ScalarExpr, Stmt,
+};
 
-/// Errors produced by loop-kernel evaluation.
-#[derive(Debug, Clone, PartialEq, Error)]
-pub enum LoopError {
-    /// A required named input was not supplied.
-    #[error("missing input {0:?}")]
-    MissingInput(String),
-
-    /// A supplied input shape differs from the declared kernel input shape.
-    #[error("input {name:?} shape mismatch: expected {expected}, got {got}")]
-    InputShapeMismatch {
-        /// Input name.
-        name: String,
-        /// Declared shape.
-        expected: Shape,
-        /// Supplied tensor shape.
-        got: Shape,
-    },
-
-    /// A buffer access was outside the flat buffer.
-    #[error("buffer {buffer} index {index} is out of bounds for {numel} elements")]
-    IndexOutOfBounds {
-        /// Buffer being accessed.
-        buffer: BufferId,
-        /// Evaluated flat index.
-        index: i64,
-        /// Buffer element count.
-        numel: usize,
-    },
-
-    /// The interpreter does not define semantics for this dtype.
-    #[error("unsupported dtype {dtype}")]
-    UnsupportedDtype {
-        /// Unsupported dtype.
-        dtype: DType,
-    },
-
-    /// A floating-point literal was NaN or infinity.
-    #[error("non-finite floating-point value")]
-    NonFiniteFloat,
-
-    /// Internal consistency check failed.
-    #[error("internal loop interpreter error: {0}")]
-    Internal(String),
-}
-
-/// Evaluates an affine loop kernel over exact rationals.
+/// Evaluates an affine loop kernel over IEEE `f64` values.
 ///
-/// Inputs and constants are losslessly lifted through `vtc-interp::Tensor`.
-/// Every load and store bounds-checks its evaluated flat affine index.
+/// The interpreter executes statements in the exact order written in the
+/// kernel. `For` loops iterate ascending over their affine `[lo, hi)` bounds,
+/// and every `Assign` stores immediately. The resulting accumulation order is
+/// therefore completely determined by the loop nest.
 ///
 /// # Errors
 ///
-/// Returns [`LoopError`] for missing or mismatched inputs, unsupported dtypes,
-/// non-finite constants, out-of-bounds accesses, or internal consistency
-/// failures.
-pub fn eval_loops<S: BuildHasher>(
+/// Returns [`LoopError`] for missing or mismatched inputs, unsupported
+/// constants, non-finite constants, out-of-bounds accesses, or internal
+/// consistency failures.
+pub fn eval_loops_f64<S: BuildHasher>(
     kernel: &Kernel,
-    inputs: &HashMap<String, Tensor, S>,
-) -> Result<Vec<Tensor>, LoopError> {
+    inputs: &HashMap<String, TensorF64, S>,
+) -> Result<Vec<TensorF64>, LoopError> {
     let mut buffers = allocate_buffers(kernel, inputs)?;
     let mut env = HashMap::new();
     exec_stmts(kernel.body(), &mut buffers, &mut env)?;
@@ -89,8 +46,8 @@ pub fn eval_loops<S: BuildHasher>(
 
 fn allocate_buffers(
     kernel: &Kernel,
-    inputs: &HashMap<String, Tensor, impl BuildHasher>,
-) -> Result<Vec<Vec<BigRational>>, LoopError> {
+    inputs: &HashMap<String, TensorF64, impl BuildHasher>,
+) -> Result<Vec<Vec<f64>>, LoopError> {
     kernel
         .buffers()
         .iter()
@@ -100,8 +57,8 @@ fn allocate_buffers(
 
 fn allocate_buffer(
     buffer: &Buffer,
-    inputs: &HashMap<String, Tensor, impl BuildHasher>,
-) -> Result<Vec<BigRational>, LoopError> {
+    inputs: &HashMap<String, TensorF64, impl BuildHasher>,
+) -> Result<Vec<f64>, LoopError> {
     match buffer.role() {
         BufferRole::Input(name) => {
             let input = inputs
@@ -116,18 +73,16 @@ fn allocate_buffer(
             }
             Ok(input.data().to_vec())
         }
-        BufferRole::Const(data) => Tensor::from_data(data, buffer.shape())
+        BufferRole::Const(data) => TensorF64::from_data(data, buffer.shape())
             .map(|tensor| tensor.data().to_vec())
             .map_err(loop_error_from_eval),
-        BufferRole::Temp | BufferRole::Output => {
-            Ok(vec![BigRational::zero(); shape_numel(buffer.shape())?])
-        }
+        BufferRole::Temp | BufferRole::Output => Ok(vec![0.0; shape_numel(buffer.shape())?]),
     }
 }
 
 fn exec_stmts(
     stmts: &[Stmt],
-    buffers: &mut [Vec<BigRational>],
+    buffers: &mut [Vec<f64>],
     env: &mut HashMap<LoopVar, i64>,
 ) -> Result<(), LoopError> {
     for stmt in stmts {
@@ -138,7 +93,7 @@ fn exec_stmts(
 
 fn exec_stmt(
     stmt: &Stmt,
-    buffers: &mut [Vec<BigRational>],
+    buffers: &mut [Vec<f64>],
     env: &mut HashMap<LoopVar, i64>,
 ) -> Result<(), LoopError> {
     match stmt {
@@ -161,12 +116,14 @@ fn exec_stmt(
 
 fn eval_scalar(
     expr: &ScalarExpr,
-    buffers: &[Vec<BigRational>],
+    buffers: &[Vec<f64>],
     env: &HashMap<LoopVar, i64>,
-) -> Result<BigRational, LoopError> {
+) -> Result<f64, LoopError> {
     match expr {
         ScalarExpr::Load(reference) => load(reference, buffers, env),
-        ScalarExpr::ConstScalar(value) => Ok(value.clone()),
+        ScalarExpr::ConstScalar(value) => value.to_f64().ok_or_else(|| {
+            LoopError::Internal("rational scalar literal is not representable as f64".to_owned())
+        }),
         ScalarExpr::Add(left, right) => {
             Ok(eval_scalar(left, buffers, env)? + eval_scalar(right, buffers, env)?)
         }
@@ -179,38 +136,36 @@ fn eval_scalar(
         ScalarExpr::Neg(input) => Ok(-eval_scalar(input, buffers, env)?),
         ScalarExpr::Relu(input) => {
             let value = eval_scalar(input, buffers, env)?;
-            if value > BigRational::zero() {
-                Ok(value)
-            } else {
-                Ok(BigRational::zero())
-            }
+            if value > 0.0 { Ok(value) } else { Ok(0.0) }
         }
     }
 }
 
 fn load(
     reference: &BufferRef,
-    buffers: &[Vec<BigRational>],
+    buffers: &[Vec<f64>],
     env: &HashMap<LoopVar, i64>,
-) -> Result<BigRational, LoopError> {
+) -> Result<f64, LoopError> {
     let index = checked_index(reference, buffers, env)?;
     let buffer = buffers
         .get(buffer_index(reference.buffer)?)
         .ok_or_else(|| LoopError::Internal(format!("missing buffer {}", reference.buffer)))?;
     let index_i64 = i64::try_from(index)
         .map_err(|_| LoopError::Internal("index conversion overflow".to_owned()))?;
-    let value = buffer.get(index).ok_or(LoopError::IndexOutOfBounds {
-        buffer: reference.buffer,
-        index: index_i64,
-        numel: buffer.len(),
-    })?;
-    Ok(value.clone())
+    buffer
+        .get(index)
+        .copied()
+        .ok_or(LoopError::IndexOutOfBounds {
+            buffer: reference.buffer,
+            index: index_i64,
+            numel: buffer.len(),
+        })
 }
 
 fn store(
     reference: &BufferRef,
-    value: BigRational,
-    buffers: &mut [Vec<BigRational>],
+    value: f64,
+    buffers: &mut [Vec<f64>],
     env: &HashMap<LoopVar, i64>,
 ) -> Result<(), LoopError> {
     let index = checked_index(reference, buffers, env)?;
@@ -235,7 +190,7 @@ fn store(
 
 fn checked_index(
     reference: &BufferRef,
-    buffers: &[Vec<BigRational>],
+    buffers: &[Vec<f64>],
     env: &HashMap<LoopVar, i64>,
 ) -> Result<usize, LoopError> {
     let buffer_index = buffer_index(reference.buffer)?;
@@ -265,10 +220,10 @@ fn checked_index(
 
 fn tensor_from_buffer(
     kernel: &Kernel,
-    buffers: &[Vec<BigRational>],
+    buffers: &[Vec<f64>],
     id: BufferId,
-    shape: &Shape,
-) -> Result<Tensor, LoopError> {
+    shape: &vtc_ir::Shape,
+) -> Result<TensorF64, LoopError> {
     kernel
         .buffer(id)
         .ok_or_else(|| LoopError::Internal(format!("missing output buffer {id}")))?;
@@ -276,37 +231,5 @@ fn tensor_from_buffer(
         .get(buffer_index(id)?)
         .ok_or_else(|| LoopError::Internal(format!("missing output data for {id}")))?
         .clone();
-    Tensor::new(shape.clone(), data).map_err(loop_error_from_eval)
-}
-
-pub(crate) fn loop_error_from_eval(error: EvalError) -> LoopError {
-    match error {
-        EvalError::MissingInput(name) => LoopError::MissingInput(name),
-        EvalError::InputShapeMismatch {
-            name,
-            expected,
-            got,
-        } => LoopError::InputShapeMismatch {
-            name,
-            expected,
-            got,
-        },
-        EvalError::UnsupportedDtype { dtype } => LoopError::UnsupportedDtype { dtype },
-        EvalError::NonFiniteFloat => LoopError::NonFiniteFloat,
-        EvalError::DataShapeMismatch { expected, got } => LoopError::Internal(format!(
-            "tensor data length mismatch: expected {expected}, got {got}"
-        )),
-        EvalError::Type(error) => LoopError::Internal(error.to_string()),
-        EvalError::Internal(message) => LoopError::Internal(message),
-    }
-}
-
-pub(crate) fn shape_numel(shape: &vtc_ir::Shape) -> Result<usize, LoopError> {
-    shape
-        .numel()
-        .map_err(|_| LoopError::Internal("shape element count overflow".to_owned()))
-}
-
-pub(crate) fn buffer_index(id: BufferId) -> Result<usize, LoopError> {
-    usize::try_from(id.id()).map_err(|_| LoopError::Internal("buffer id overflow".to_owned()))
+    TensorF64::new(shape.clone(), data).map_err(loop_error_from_eval)
 }
