@@ -72,6 +72,40 @@ impl Op {
         }
     }
 
+    /// Returns a copy of this op with every operand remapped by `f`.
+    #[must_use]
+    pub fn map_operands(&self, f: impl Fn(NodeId) -> NodeId) -> Self {
+        match self {
+            Self::Input { name, ty } => Self::Input {
+                name: name.clone(),
+                ty: ty.clone(),
+            },
+            Self::Const { data, shape } => Self::Const {
+                data: data.clone(),
+                shape: shape.clone(),
+            },
+            Self::Add(left, right) => Self::Add(f(*left), f(*right)),
+            Self::Sub(left, right) => Self::Sub(f(*left), f(*right)),
+            Self::Mul(left, right) => Self::Mul(f(*left), f(*right)),
+            Self::Neg(input) => Self::Neg(f(*input)),
+            Self::Relu(input) => Self::Relu(f(*input)),
+            Self::Matmul(left, right) => Self::Matmul(f(*left), f(*right)),
+            Self::Sum {
+                input,
+                axes,
+                keepdim,
+            } => Self::Sum {
+                input: f(*input),
+                axes: axes.clone(),
+                keepdim: *keepdim,
+            },
+            Self::Reshape { input, new_shape } => Self::Reshape {
+                input: f(*input),
+                new_shape: new_shape.clone(),
+            },
+        }
+    }
+
     /// Returns the stable text name for this operation kind.
     #[must_use]
     pub const fn op_name(&self) -> &'static str {
@@ -86,6 +120,42 @@ impl Op {
             Self::Matmul(_, _) => "matmul",
             Self::Sum { .. } => "sum",
             Self::Reshape { .. } => "reshape",
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Dim, NodeId, Op, Shape};
+
+    #[test]
+    fn map_operands_rewrites_all_node_ids() {
+        let op = Op::Sum {
+            input: NodeId::new(2),
+            axes: vec![0],
+            keepdim: true,
+        };
+
+        let mapped = op.map_operands(|id| NodeId::new(id.index() + 10));
+
+        assert_eq!(mapped.operands(), vec![NodeId::new(12)]);
+    }
+
+    #[test]
+    fn map_operands_preserves_non_operand_data() {
+        let op = Op::Reshape {
+            input: NodeId::new(3),
+            new_shape: Shape::new(vec![Dim::new(2), Dim::new(2)]),
+        };
+
+        let mapped = op.map_operands(|_| NodeId::new(0));
+
+        match mapped {
+            Op::Reshape { input, new_shape } => {
+                assert_eq!(input, NodeId::new(0));
+                assert_eq!(new_shape, Shape::new(vec![Dim::new(2), Dim::new(2)]));
+            }
+            _ => unreachable!("map_operands preserves the op variant"),
         }
     }
 }
