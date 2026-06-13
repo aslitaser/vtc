@@ -7,6 +7,8 @@
 pub mod r#gen;
 
 mod driver;
+mod egg_lang;
+mod egg_search;
 mod rule;
 mod rules;
 mod ruleset;
@@ -14,6 +16,11 @@ mod safety;
 mod surgery;
 
 pub use driver::{AppliedRewrite, DriverConfig, RunResult, run};
+pub use egg_lang::{AtomTable, EggError, EggLang, graph_to_recexpr, recexpr_to_graph};
+pub use egg_search::{
+    EggConfig, EggResult, EggRule, egg_rules_for_mode, make_egg_rule, optimize_with_egg,
+    optimize_with_egg_rules,
+};
 pub use rule::Rewrite;
 pub use rules::{NegNegElim, ReluIdempotentElim, ReshapeReshapeFuse};
 pub use ruleset::RuleSet;

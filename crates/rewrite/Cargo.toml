@@ -5,6 +5,7 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
+egg = "0.9"
 rand = "0.8"
 thiserror.workspace = true
 vtc-interp = { path = "../interp" }
