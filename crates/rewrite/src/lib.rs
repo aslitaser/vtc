@@ -6,12 +6,14 @@
 
 pub mod r#gen;
 
+mod driver;
 mod rule;
 mod rules;
 mod ruleset;
 mod safety;
 mod surgery;
 
+pub use driver::{AppliedRewrite, DriverConfig, RunResult, run};
 pub use rule::Rewrite;
 pub use rules::{NegNegElim, ReluIdempotentElim, ReshapeReshapeFuse};
 pub use ruleset::RuleSet;
