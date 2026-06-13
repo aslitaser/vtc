@@ -774,8 +774,12 @@ dependencies = [
 name = "vtc-codegen"
 version = "0.1.0"
 dependencies = [
+ "tempfile",
  "thiserror 2.0.18",
+ "vtc-interp",
+ "vtc-ir",
  "vtc-loopir",
+ "vtc-schedule",
 ]
 
 [[package]]

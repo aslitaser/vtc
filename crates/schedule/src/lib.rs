@@ -15,9 +15,10 @@ mod tile;
 pub use autotune::{
     MoveDesc, TuneConfig, TuneError, TuneResult, autotune, legal_moves, validate_equiv,
 };
-pub use cost::{CostModel, StaticCost};
+pub use cost::StaticCost;
 pub use deps::{DepError, LevelDep, affine_depends_on, affine_eq, classify_levels};
 pub use fuse::fuse;
 pub use interchange::{LegalityError, interchange};
 pub use mode::Mode;
 pub use tile::tile;
+pub use vtc_loopir::CostModel;

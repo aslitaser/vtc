@@ -2,22 +2,13 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use vtc_loopir::{AffineExpr, BufferId, BufferRole, Kernel, LoopVar, Stmt};
+use vtc_loopir::{AffineExpr, BufferId, BufferRole, CostModel, Kernel, LoopVar, Stmt};
 
 use crate::primitives::{constant_value, decompose_perfect_nest, summarize_accesses};
 
 const TEMP_BUFFER_PENALTY: u64 = 16;
 const TEMP_BOUNDARY_PENALTY: u64 = 128;
 const NEST_OVERHEAD: u64 = 8;
-
-/// Cost model used by the autotuner.
-///
-/// Implementations are allowed to be heuristic. Lower values are considered
-/// better by the current greedy search.
-pub trait CostModel {
-    /// Returns a deterministic cost estimate for `kernel`.
-    fn cost(&self, kernel: &Kernel) -> u64;
-}
 
 /// Static deterministic heuristic cost proxy.
 ///

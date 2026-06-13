@@ -5,8 +5,14 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
+tempfile = "3"
 thiserror.workspace = true
+vtc-interp = { path = "../interp" }
 vtc-loopir = { path = "../loopir" }
+
+[dev-dependencies]
+vtc-ir = { path = "../ir" }
+vtc-schedule = { path = "../schedule" }
 
 [lints]
 workspace = true
