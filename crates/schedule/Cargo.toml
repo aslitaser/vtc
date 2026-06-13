@@ -6,7 +6,12 @@ version.workspace = true
 
 [dependencies]
 thiserror.workspace = true
+vtc-ir = { path = "../ir" }
 vtc-loopir = { path = "../loopir" }
+
+[dev-dependencies]
+rand = "0.8"
+vtc-rewrite = { path = "../rewrite" }
 
 [lints]
 workspace = true
