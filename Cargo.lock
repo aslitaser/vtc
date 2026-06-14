@@ -768,6 +768,14 @@ name = "vtc"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "rand 0.8.6",
+ "thiserror 2.0.18",
+ "vtc-codegen",
+ "vtc-interp",
+ "vtc-ir",
+ "vtc-loopir",
+ "vtc-rewrite",
+ "vtc-schedule",
 ]
 
 [[package]]

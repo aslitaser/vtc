@@ -10,6 +10,14 @@ path = "src/main.rs"
 
 [dependencies]
 clap.workspace = true
+rand = "0.8"
+thiserror.workspace = true
+vtc-codegen = { path = "../codegen" }
+vtc-interp = { path = "../interp" }
+vtc-ir = { path = "../ir" }
+vtc-loopir = { path = "../loopir" }
+vtc-rewrite = { path = "../rewrite" }
+vtc-schedule = { path = "../schedule" }
 
 [lints]
 workspace = true
