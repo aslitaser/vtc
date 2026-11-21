@@ -1,4 +1,8 @@
-import Mathlib.Algebra.Order.Ring.Rat
+module
+
+public import Mathlib.Algebra.Order.Ring.Rat
+
+@[expose] public section
 
 namespace VtcProofs
 

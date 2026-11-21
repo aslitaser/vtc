@@ -17,10 +17,12 @@ cargo run -p vtc -- list
 cargo run -p vtc -- run --example matmul --check
 ```
 
-Build the Lean proofs:
+Build and audit the Lean proofs. The proposed strict binary64 semantics and
+verification boundary are documented in the [strict f64 contract](proofs/strict-f64.md).
 
 ```sh
 cd proofs
-lake exe cache get
+lake exe cache get Mathlib.Algebra.Order.Ring.Rat
 lake build
+lake env lean CheckAxioms.lean
 ```

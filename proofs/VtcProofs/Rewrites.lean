@@ -1,4 +1,8 @@
-import VtcProofs.Tensor
+module
+
+public import VtcProofs.Tensor
+
+public section
 
 namespace VtcProofs
 
