@@ -2,8 +2,7 @@
 
 use std::collections::HashMap;
 use std::env;
-use std::ffi::OsString;
-use std::sync::{Mutex, OnceLock};
+use std::process::Command;
 
 use vtc_codegen::{
     BenchError, MeasuredCost, compile_and_run, emit_c, has_c_compiler, measure_runtime,
@@ -174,15 +173,36 @@ fn compiled_c_matches_loop_f64_for_lowered_and_scheduled_kernels() {
 
 #[test]
 fn missing_compiler_returns_a_fail_closed_error() {
-    let _guard = env_lock().lock().expect("env lock not poisoned");
-    let old_cc = env::var_os("CC");
-    set_cc(Some(OsString::from("definitely-not-a-vtc-c-compiler")));
+    const CHILD: &str = "VTC_TEST_MISSING_COMPILER_CHILD";
+    const CONFIRMED: &str = "child observed BenchError::NoCompiler";
 
-    let kernel = lower(&matmul_graph(1)).expect("graph lowers");
-    let result = compile_and_run(&kernel, &HashMap::new());
+    if env::var_os(CHILD).is_some() {
+        let kernel = lower(&matmul_graph(1)).expect("graph lowers");
+        let result = compile_and_run(&kernel, &HashMap::new());
+        assert!(matches!(result, Err(BenchError::NoCompiler)));
+        eprintln!("{CONFIRMED}");
+        return;
+    }
 
-    set_cc(old_cc);
-    assert!(matches!(result, Err(BenchError::NoCompiler)));
+    let dir = tempfile::tempdir().expect("create empty compiler directory");
+    let output = Command::new(env::current_exe().expect("locate test executable"))
+        .args([
+            "--exact",
+            "missing_compiler_returns_a_fail_closed_error",
+            "--nocapture",
+        ])
+        .env(CHILD, "1")
+        .env("CC", dir.path().join("missing-cc"))
+        .output()
+        .expect("run missing-compiler test in child");
+    // An exact filter that matches zero tests also exits successfully.
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success() && stderr.lines().any(|line| line == CONFIRMED),
+        "missing-compiler child exited with {}\n{}\n{stderr}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout)
+    );
 }
 
 #[test]
@@ -235,21 +255,4 @@ fn measured_cost_autotune_preserves_loop_oracles() {
         &eval_loops_f64(&kernel, &f64_inputs).expect("original f64"),
         &eval_loops_f64(&result.kernel, &f64_inputs).expect("tuned f64"),
     );
-}
-
-fn env_lock() -> &'static Mutex<()> {
-    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| Mutex::new(()))
-}
-
-fn set_cc(value: Option<OsString>) {
-    // SAFETY: this test serializes all local CC mutation through `env_lock`.
-    // No library code stores borrowed environment pointers across the mutation.
-    unsafe {
-        if let Some(value) = value {
-            env::set_var("CC", value);
-        } else {
-            env::remove_var("CC");
-        }
-    }
 }
