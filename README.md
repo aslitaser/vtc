@@ -1,7 +1,7 @@
 # vtc
 
-Small tensor compiler prototype in Rust, with a separate Lean proof project for
-the first rewrite laws.
+Small tensor compiler prototype in Rust, with a separate Lean project for
+rational rewrite laws and strict binary64 scalar semantics.
 
 ```sh
 cargo build --workspace

@@ -2,17 +2,18 @@
 
 This is a standalone Lean 4 project. Cargo does not build it.
 
-The model is deliberately small: a tensor with `n` flat elements is
-`Fin n -> Q`. The proved rewrites are double negation, relu idempotence, and
-reshape fusion. There are also two scalar law lemmas for addition commutativity
-and associativity.
+The rational tensor model represents `n` flat elements as `Fin n → ℚ`. Its
+proofs cover double negation, ReLU idempotence, reshape fusion, and the
+commutativity and associativity of rational addition.
 
-These proofs cover rational identities, not the Rust graph surgery code and not
-IEEE bit behavior. Rust tests cover the implementation path; the f64 oracle
-checks bit behavior.
-
-The [strict f64 contract](strict-f64.md) specifies the target for future
-compiler proofs.
+The [strict scalar model](VtcProofs/StrictF64.lean) uses Lean's logical
+binary64 operations. In namespace `VtcProofs.StrictF64`, `decode_eq_iff`
+characterizes equality of decoded `UInt64` inputs: their raw bits agree or
+both encode NaNs. Thus opposite signed zeros remain distinct observations.
+`decode_toBits` proves that every model value round-trips through its canonical
+encoding. The [strict f64 contract](strict-f64.md) describes how future graph
+and kernel proofs will use these scalar observations. Rust execution is
+currently checked by differential tests.
 
 Build and audit with the pinned Lean and mathlib v4.36.0 toolchain:
 
