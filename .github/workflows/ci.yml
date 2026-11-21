@@ -37,3 +37,7 @@ jobs:
       - name: Check transitive axiom dependencies
         working-directory: proofs
         run: lake env lean CheckAxioms.lean
+      - name: Exercise the strict graph decoder and evaluator
+        working-directory: proofs
+        timeout-minutes: 2
+        run: lake env lean --run GraphEncodingTests.lean

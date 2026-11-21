@@ -17,6 +17,7 @@
 mod builder;
 mod data;
 mod dtype;
+mod encoding;
 mod error;
 mod graph;
 mod infer;
@@ -27,6 +28,7 @@ mod tensor_type;
 pub use builder::GraphBuilder;
 pub use data::TensorData;
 pub use dtype::DType;
+pub use encoding::{GraphEncodeError, encode_graph_v1};
 pub use error::IrError;
 pub use graph::{Graph, Node, NodeId};
 pub use infer::{GraphTypes, TypeError, infer_types};

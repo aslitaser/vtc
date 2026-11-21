@@ -1,7 +1,7 @@
 # Strict f64 contract
 
 This is the specification for vtc's proposed verified compilation path. The
-first milestone covers input, constant, add and ReLU graphs. The full subset
+[v1 source graph](graph-v1.md) covers input, constant, add and ReLU. The full subset
 also covers subtraction, multiplication, negation, reshape, rank-two matrix
 multiplication and sum over explicit axes. Lean defines the
 [strict scalar operations and input equality](VtcProofs/StrictF64.lean).

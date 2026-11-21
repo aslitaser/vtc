@@ -23,6 +23,15 @@ enum Command {
     List,
     /// Run a built-in example through the full pipeline.
     Run(RunArgs),
+    /// Write the original graph to stdout in the strict f64 v1 JSON format.
+    ExportGraph {
+        /// Built-in example name.
+        #[arg(long, default_value = "add-relu")]
+        example: String,
+        /// Shape assignments, e.g. --shape D0=2,D1=3.
+        #[arg(long = "shape", value_delimiter = ',')]
+        shapes: Vec<String>,
+    },
 }
 
 #[derive(Debug, Parser)]
@@ -92,7 +101,7 @@ fn main() -> ExitCode {
     }
 }
 
-fn run() -> Result<(), PipelineError> {
+fn run() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     match cli.command.unwrap_or(Command::Run(RunArgs::default_run())) {
         Command::List => {
@@ -105,6 +114,11 @@ fn run() -> Result<(), PipelineError> {
             let opts = args.to_opts()?;
             let report = run_pipeline(&opts)?;
             print!("{report}");
+            Ok(())
+        }
+        Command::ExportGraph { example, shapes } => {
+            let (graph, _) = build_example(&example, &parse_shapes(&shapes)?)?;
+            println!("{}", vtc_ir::encode_graph_v1(&graph)?);
             Ok(())
         }
     }

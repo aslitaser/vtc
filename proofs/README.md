@@ -11,9 +11,13 @@ binary64 operations. In namespace `VtcProofs.StrictF64`, `decode_eq_iff`
 characterizes equality of decoded `UInt64` inputs: their raw bits agree or
 both encode NaNs. Thus opposite signed zeros remain distinct observations.
 `decode_toBits` proves that every model value round-trips through its canonical
-encoding. The [strict f64 contract](strict-f64.md) describes how future graph
-and kernel proofs will use these scalar observations. Rust execution is
-currently checked by differential tests.
+encoding.
+
+The [v1 graph decoder](VtcProofs/GraphEncoding.lean) accepts UTF-8 JSON
+for inputs, finite constants, elementwise add, and ReLU. The
+[graph evaluator](VtcProofs/Graph.lean) uses the strict scalar operations.
+See the [wire format and command-line example](graph-v1.md) and the
+[strict f64 contract](strict-f64.md) for the verification boundary.
 
 Build and audit with the pinned Lean and mathlib v4.36.0 toolchain:
 
@@ -22,6 +26,7 @@ cd proofs
 lake exe cache get Mathlib.Algebra.Order.Ring.Rat
 lake build
 lake env lean CheckAxioms.lean
+lake env lean --run GraphEncodingTests.lean
 ```
 
 CI audits every declaration defined in the proof library, including its
